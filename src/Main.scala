@@ -56,46 +56,53 @@ object Main {
    * 打印二维数组
    * 泛型方法
    */
-  def printArr[T](arr: Array[Array[T]]): Unit = {
+  private def print2DArr[T](arr: Array[Array[T]]): Unit = {
     for (row <- arr) {
       for (ele <- row) {
-        print(ele+",")
+        print(ele + ",")
       }
       println()
     }
   }
 
   /**
-   *
-    随机初始化路线
-      这里[初始种群]为随机生成的 100 条路线。
-      使用 np.random.choice 生成 0 至 n-1 的不重复的长度为 n 的 numpy 数组。
-    :param n_route: 初始化的路线数量 int
-    :param n_cities: 城市的数量 int
-    :return: 路线矩阵 二维 nd_array
-   * @param numRoute 初始化的路线数量
-   * @param numCities 城市的数量
-   * @return 路线二维矩阵
+   * 打印一维数组
+   * 泛型方法
    */
-  def initRoute(numRoute:Int, numCities: Int): Array[Array[Int]] = {
-    val routes = ListBuffer.fill(numRoute)(ArrayBuffer.fill(numCities)(0))
-    for(i <- 0 until numRoute) {
-//      val random = new Random()
-      // 生成一个范围为 [0, numCities-1] 的随机不重复数字集合-洗牌算法
-//val randomNumbers = Random.shuffle(0 until numCities).take(numCities).toSet
-      // 打印选出的随机数字
-//randomNumbers.foreach(println)
+  private def print1DArr[T](arr: Array[T]): Unit = {
+    for (ele <- arr) {
+      print(ele + ",")
     }
-    null
+  }
+
+  /**
+   * 自动匹配打印1d/2d数组
+   */
+  private def printArr[T](arr: Any): Unit = {
+    arr match {
+      case _: Array[_] =>
+        print1DArr(arr.asInstanceOf[Array[T]])
+      // 处理一维数组的逻辑
+
+      case _: Array[Array[_]] =>
+        // 处理二维数组的逻辑
+        print2DArr(arr.asInstanceOf[Array[Array[T]]])
+
+      case _ =>
+        println("未知类型")
+      // 处理未知类型的逻辑
+    }
   }
 
   /**
    * 利用 Fisher-Yates 算法生成随机不重复的一维数组，表明某个城市到其他城市的路线图
+   * Fisher-Yates shuffle - 洗牌算法
+   *
    * @param numRoutes 生成的路径数量 numRoutes<=numCities
    * @param numCities 城市数量
    * @return Array 类型
    */
-  def createRandomRoutes(numRoutes: Int, numCities: Int): Array[Int] = {
+  private def createRandomRoutes(numRoutes: Int, numCities: Int): Array[Int] = {
     val arr = Array.tabulate(numCities)(i => i) // 创建包含[0,numCities-1]的数组
     val random = new Random()
 
@@ -105,37 +112,108 @@ object Main {
       arr(i) = arr(j)
       arr(j) = temp
     }
-//    arr.take(numRoutes) // 返回前numRoutes个元素(一维数组)
+    //    arr.take(numRoutes) // 返回前numRoutes个元素(一维数组)
     arr
   }
 
   /**
    * 获取城市之间路线图
+   *
    * @param numRoutes 路径数量
    * @param numCities 城市数量
    * @return
    */
-  def getRandomRoutes(numRoutes: Int, numCities: Int): ArrayBuffer[Array[Int]] = {
+  private def getRandomRoutes(numRoutes: Int, numCities: Int): ArrayBuffer[Array[Int]] = {
     val routes: ArrayBuffer[Array[Int]] = ArrayBuffer.fill(numRoutes)(Array.ofDim[Int](numCities))
     for (i <- 1 to numRoutes) {
-      routes(i-1) = createRandomRoutes(numRoutes, numCities)
+      routes(i - 1) = createRandomRoutes(numRoutes, numCities)
     }
     routes
   }
+
   /**
-    计算所有路线的适应度
-   * @param routes 所有路线 2d_array
-   * @param dist_matrix 距离矩阵 2d_array
-   * @return 所有路线的适应度 2d_array
+   * 获取一条路线的适应度值：使用路线总长度的倒数作为适应度值
+   *
+   * @param routes     所有路线
+   * @param distMatrix 所有两两城市之间距离
+   * @return 路线适应度值 Double
    */
-  def getAllRoutesFitnessValue(routes: ArrayBuffer[Array[Int]], distMatrix: ListBuffer[ArrayBuffer[Double]]) = {
+  private def getRouteFitnessValue(routes: Array[Int], distMatrix: Array[Array[Double]]): Double = {
+    var distSum = 0.0
+    val len = routes.length
+    for (i <- 0 until len - 1) {
+      distSum += distMatrix(routes(i))((routes(i + 1)))
+    }
+    distSum += distMatrix(routes(len - 1))((routes(0)))
+    1 / distSum
+  }
 
-    //    fitness_values = np.zeros(len(routes))
-    //    for i in range(len(routes)):
-    //      f_value = get_route_fitness_value(routes[i], dist_matrix)
-    //    fitness_values[i] = f_value
-    //    return fitness_values
+  /**
+   * 计算所有路线的适应度
+   *
+   * @param routes     所有路线 2d_array
+   * @param distMatrix 距离矩阵 2d_array
+   * @return 所有路线的适应度 1d_array
+   */
+  private def getAllRoutesFitnessValue(routes: ArrayBuffer[Array[Int]], distMatrix: Array[Array[Double]]) = {
+    val len = routes.length
+    val fitnessValues: ListBuffer[Double] = ListBuffer.fill(len)(0.0)
+    for (i <- 0 until len) {
+      fitnessValues(i) = getRouteFitnessValue(routes(i), distMatrix)
+    }
+    fitnessValues
+  }
 
+  /**
+   *
+   * 首先计算权重数组 probability 的总和 totalWeight。
+   * 然后，生成一个随机的双精度浮点数 threshold，其取值范围在 0 到 totalWeight 之间。
+   * 接下来，使用循环遍历权重数组，并累加权重值，直到累加值超过或等于 threshold。
+   * 循环结束后，返回所选元素的下标 index。
+   *
+//   * @param arr 从给定的下标范围选取生成随机值的样本
+   * @param probability 权重一维数组
+   * @return 返回下标值
+   */
+//  def weightedRandomChoice(arr: Array[Int],probability: Array[Double]): Int = {
+  private def weightedRandomChoice(probability: ListBuffer[Double]): Int = {
+    val random = new Random()
+    val totalWeight = probability.sum
+    val threshold = random.nextDouble() * totalWeight
+
+    var cumulativeWeight = 0.0
+    var index = 0
+    while (index < probability.length - 1 && cumulativeWeight + probability(index) < threshold) {
+      cumulativeWeight += probability(index)
+      index += 1
+    }
+    index
+  }
+
+  /**
+   * 选择操作：
+   * 个体路线适应度越高，其被选择的机会就越多。故此处采用与适应度成比例的概率方法进行选择。
+   * 具体地说，就是首先计算群体中所有个体适应度的总和，再计算每个个体的适应度所占的比例，
+   * 并以此作为相应的选择概率。然后采用轮盘赌方法进行 routes=100 次[带概率的随机选择]。
+   *
+   * @param routes              所有路线 2d_array
+   * @param routesFitnessValues 所有路线适应度 1d_array
+   * @return 淘汰掉地适应度后的路线
+   */
+  private def selection(routes: ArrayBuffer[Array[Int]], routesFitnessValues: ListBuffer[Double]): ArrayBuffer[Array[Int]] = {
+
+    // 根据 routes 的长宽大小申请一个同样大小的二维数组
+    val selectedRoutes: ArrayBuffer[Array[Int]] = ArrayBuffer.fill(routes.length)(Array.ofDim[Int](routes(0).length))
+    val sumFitnessValue = routesFitnessValues.sum
+    val probability = routesFitnessValues.map(ele => ele / sumFitnessValue)
+    //    printArr(probability.toArray)
+    val numRoutes = routes.length
+    // numRoutes 次轮盘赌带权重随机选择
+    for (i <- 0 until numRoutes) {
+        val idx = weightedRandomChoice(probability)
+        selectedRoutes(i) = routes(idx)
+    }
+    selectedRoutes
   }
 
   /**
@@ -147,17 +225,28 @@ object Main {
     val numCities = 127 // 城市数量
     val epoch = 100000 // 迭代次数
 
+    // ===========================前期准备===========================
     // 导入数据
     val cities: ListBuffer[ArrayBuffer[Int]] = loadData("./cities.txt")
     //    numCities.foreach(println)
     // 计算各城市距离矩阵
-    val distArr2D: Array[Array[Double]] = getCitiesDistance(cities)
-//    printArr(distArr2D)
-//    获取路线图
-    val routes: ArrayBuffer[Array[Int]] = getRandomRoutes(numRoutes, numCities)
-//    printArr(routes.toArray)
-//     获取所有路线的适应度
+    val distMatrix: Array[Array[Double]] = getCitiesDistance(cities)
+    //    printArr(distArr2D)
+    //    获取路线图
+    var routes: ArrayBuffer[Array[Int]] = getRandomRoutes(numRoutes, numCities)
+    //    printArr(routes.toArray)
+    //     获取所有路线的适应度
+    val routesFitnessValues = getAllRoutesFitnessValue(routes, distMatrix)
+    //    printArr(routesFitnessValues.toArray)
+    val (maxValue, maxIndex) = routesFitnessValues.zipWithIndex.maxBy(_._1)
+    val (bestRoute, bestFitness) = (routes(maxIndex), maxValue)
+    //    print(s"最好适应度为：$bestFitness\n最好路线为：${bestRoute.mkString("Array(", ", ", ")")}")
 
+    // ===========================开始迭代===========================
+    val endPointValue = 0
+//    for (i <- 1 to epoch) {
+      routes = selection(routes, routesFitnessValues)
+//    }
     val end = System.currentTimeMillis()
     //    [scala string format用法](https://juejin.cn/s/scala%20string%20format%E7%94%A8%E6%B3%95)
     val resSec = (end - start) / 1000
