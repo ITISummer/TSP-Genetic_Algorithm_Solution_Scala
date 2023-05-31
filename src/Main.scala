@@ -217,6 +217,41 @@ object Main {
   }
 
   /**
+   *  1. 采用基于部分映射的交配法
+   *  2. 产生一个随机数，确定交叉的起始位置，对起始位置及之后的位置进行交换，
+   *  并放在首位，然后再从各自的路径中按顺序填充未出现过的数字。
+   *  3. 对所有路线两两进行交叉操作。如路线 0 和路线 1，路线 2 和路线 3，以此类推。
+   * @param routes 所有路线 2d_array
+   * @param numCities 城市数量 int
+   * @return 交叉后的所有路线 2d_array
+   */
+  private def crossover(routes: ArrayBuffer[Array[Int]], numCities: Int): ArrayBuffer[Array[Int]] = {
+    val len = routes.length //这里len数值上=numCities
+    // 这里要区分len是奇数还是偶数，如果len是奇数则应取n-1，如果len是偶数则取len
+    for(i <- 0 until len by 2) {
+      // 初始化两个新数组，代表一条染色体的两片
+      val route1New = Array.fill(numCities)(0)
+      val route2New = Array.fill(numCities)(0)
+      // 产生 [0,numCities) 之间的随机整数，作为交叉点的下标
+      val segPoint = Random.nextInt(numCities)
+      val crossLen = numCities - segPoint
+      // 获取需要做交叉的两条路线
+      val r1 = routes(i)
+      val r2 = routes(i+1)
+      // 获取需要做交叉的片段并做交叉（做两条路线从segPoint往后相同位置的交换）
+      val r1Cross = r2.slice(segPoint,r2.length)
+      val r2Cross = r1.slice(segPoint,r1.length)
+      // 做 r1 与 r1Cross 的交集后,从 r1 中取排除 r1Cross 后的元素，得到r1中未做交叉的元素
+      val r1NonCross = r1.diff(r1Cross)
+      val r2NonCross = r2.diff(r2Cross)
+      // 填充 r1_new 和 r2_new
+      routes(i) = route1New.patch(0, r1Cross, crossLen).patch(crossLen, r1NonCross, r1NonCross.length)
+      routes(i+1) = route2New.patch(0, r2Cross, crossLen).patch(crossLen, r2NonCross, r2NonCross.length)
+    }
+    routes
+  }
+
+  /**
    * main 方法
    */
   def main(args: Array[String]): Unit = {
@@ -246,6 +281,7 @@ object Main {
     val endPointValue = 0
 //    for (i <- 1 to epoch) {
       routes = selection(routes, routesFitnessValues)
+      routes = crossover(routes, cities.length)
 //    }
     val end = System.currentTimeMillis()
     //    [scala string format用法](https://juejin.cn/s/scala%20string%20format%E7%94%A8%E6%B3%95)
