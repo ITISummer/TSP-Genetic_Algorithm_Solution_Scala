@@ -1,7 +1,6 @@
-import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.io.Source
-import scala.math.{pow, round, sqrt}
+import scala.math.{pow, sqrt}
 import scala.util.Random
 
 object Main {
@@ -13,7 +12,7 @@ object Main {
    *
    * @return
    */
-  def loadData(dataPath: String): ListBuffer[ArrayBuffer[Int]] = {
+  private def loadData(dataPath: String): ListBuffer[ArrayBuffer[Int]] = {
     val res: ListBuffer[ArrayBuffer[Int]] = ListBuffer.empty[ArrayBuffer[Int]]
 
     Source.fromFile(dataPath).getLines().foreach(line => {
@@ -27,7 +26,7 @@ object Main {
    * 具体计算两点（城市）间距离的函数，
    * 距离定义比较简单，两个城市m和n之间的距离定义为二维空间欧氏距离
    */
-  def getTwoCitiesDist(city1: ArrayBuffer[Int], city2: ArrayBuffer[Int]): Double = {
+  private def getTwoCitiesDist(city1: ArrayBuffer[Int], city2: ArrayBuffer[Int]): Double = {
     val dx = city1(0) - city2(0)
     val dy = city1(1) - city2(1)
     sqrt(pow(dx, 2) + pow(dy, 2))
@@ -39,7 +38,7 @@ object Main {
    * @param cities 各城市坐标（二维 list）
    * @return
    */
-  def getCitiesDistance(cities: ListBuffer[ArrayBuffer[Int]]): Array[Array[Double]] = {
+  private def getCitiesDistance(cities: ListBuffer[ArrayBuffer[Int]]): Array[Array[Double]] = {
     val distMatrix = ListBuffer.fill(cities.length)(ArrayBuffer.fill(cities.length)(0.0))
     //将 ListBuffer[ArrayBuffer[]] 转换为二维数组，这里其实可以不替换，但是为了用得更轻松点（不用写很长的变量名），所以就替换下
     val array2D: Array[Array[Double]] = distMatrix.map(_.toArray).toArray
@@ -112,8 +111,8 @@ object Main {
       arr(i) = arr(j)
       arr(j) = temp
     }
-    //    arr.take(numRoutes) // 返回前numRoutes个元素(一维数组)
-    arr
+    arr.take(numRoutes) // 返回前numRoutes个元素(一维数组)
+//    arr
   }
 
   /**
@@ -142,9 +141,9 @@ object Main {
     var distSum = 0.0
     val len = routes.length
     for (i <- 0 until len - 1) {
-      distSum += distMatrix(routes(i))((routes(i + 1)))
+      distSum += distMatrix(routes(i))(routes(i + 1))
     }
-    distSum += distMatrix(routes(len - 1))((routes(0)))
+    distSum += distMatrix(routes(len - 1))(routes(0))
     1 / distSum
   }
 
@@ -252,6 +251,32 @@ object Main {
   }
 
   /**
+   *
+    变异操作，变异概率为 0.01
+   * @param routes 所有路线 2d_array
+   * @param numCities 城市数量 int
+   * @return 变异后的所有路线 2d_array
+   */
+  private def mutation(routes: ArrayBuffer[Array[Int]], numCities: Int): ArrayBuffer[Array[Int]] = {
+    val prob = 0.01
+    // 这里 Random.nextDouble() 生成的是[0.0,1.0)伪随机数
+    val pRandArr = Array.fill(routes.length)(Random.nextDouble())
+    val len = routes.length
+    for(i <- 0 until len) {
+      if(pRandArr(i) < prob) {
+        val mutPosition = createRandomRoutes(2,numCities)
+        var (l,r) = (mutPosition(0),mutPosition(1))
+        // 使用元祖解构操作
+        val temp = (routes(i)(l), routes(i)(r))
+        routes(i)(l) = temp._2
+        routes(i)(r) = temp._1
+      }
+    }
+    routes
+  }
+
+
+  /**
    * main 方法
    */
   def main(args: Array[String]): Unit = {
@@ -280,8 +305,9 @@ object Main {
     // ===========================开始迭代===========================
     val endPointValue = 0
 //    for (i <- 1 to epoch) {
-      routes = selection(routes, routesFitnessValues)
-      routes = crossover(routes, cities.length)
+      routes = selection(routes, routesFitnessValues) // 选择
+      routes = crossover(routes, cities.length) // 交叉
+      routes = mutation(routes, cities.length) // 变异
 //    }
     val end = System.currentTimeMillis()
     //    [scala string format用法](https://juejin.cn/s/scala%20string%20format%E7%94%A8%E6%B3%95)
