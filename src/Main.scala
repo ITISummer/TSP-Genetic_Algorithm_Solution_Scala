@@ -2,6 +2,7 @@ import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.io.Source
 import scala.math.{pow, sqrt}
 import scala.util.Random
+import scala.util.control.Breaks._
 
 object Main {
 
@@ -112,7 +113,7 @@ object Main {
       arr(j) = temp
     }
     arr.take(numRoutes) // 返回前numRoutes个元素(一维数组)
-//    arr
+    //    arr
   }
 
   /**
@@ -170,11 +171,12 @@ object Main {
    * 接下来，使用循环遍历权重数组，并累加权重值，直到累加值超过或等于 threshold。
    * 循环结束后，返回所选元素的下标 index。
    *
-//   * @param arr 从给定的下标范围选取生成随机值的样本
+   * //   * @param arr 从给定的下标范围选取生成随机值的样本
+   *
    * @param probability 权重一维数组
    * @return 返回下标值
    */
-//  def weightedRandomChoice(arr: Array[Int],probability: Array[Double]): Int = {
+  //  def weightedRandomChoice(arr: Array[Int],probability: Array[Double]): Int = {
   private def weightedRandomChoice(probability: ListBuffer[Double]): Int = {
     val random = new Random()
     val totalWeight = probability.sum
@@ -209,25 +211,26 @@ object Main {
     val numRoutes = routes.length
     // numRoutes 次轮盘赌带权重随机选择
     for (i <- 0 until numRoutes) {
-        val idx = weightedRandomChoice(probability)
-        selectedRoutes(i) = routes(idx)
+      val idx = weightedRandomChoice(probability)
+      selectedRoutes(i) = routes(idx)
     }
     selectedRoutes
   }
 
   /**
    *  1. 采用基于部分映射的交配法
-   *  2. 产生一个随机数，确定交叉的起始位置，对起始位置及之后的位置进行交换，
-   *  并放在首位，然后再从各自的路径中按顺序填充未出现过的数字。
-   *  3. 对所有路线两两进行交叉操作。如路线 0 和路线 1，路线 2 和路线 3，以此类推。
-   * @param routes 所有路线 2d_array
+   *     2. 产生一个随机数，确定交叉的起始位置，对起始位置及之后的位置进行交换，
+   *     并放在首位，然后再从各自的路径中按顺序填充未出现过的数字。
+   *     3. 对所有路线两两进行交叉操作。如路线 0 和路线 1，路线 2 和路线 3，以此类推。
+   *
+   * @param routes    所有路线 2d_array
    * @param numCities 城市数量 int
    * @return 交叉后的所有路线 2d_array
    */
   private def crossover(routes: ArrayBuffer[Array[Int]], numCities: Int): ArrayBuffer[Array[Int]] = {
     val len = routes.length //这里len数值上=numCities
     // 这里要区分len是奇数还是偶数，如果len是奇数则应取n-1，如果len是偶数则取len
-    for(i <- 0 until len by 2) {
+    for (i <- 0 until len by 2) {
       // 初始化两个新数组，代表一条染色体的两片
       val route1New = Array.fill(numCities)(0)
       val route2New = Array.fill(numCities)(0)
@@ -236,24 +239,25 @@ object Main {
       val crossLen = numCities - segPoint
       // 获取需要做交叉的两条路线
       val r1 = routes(i)
-      val r2 = routes(i+1)
+      val r2 = routes(i + 1)
       // 获取需要做交叉的片段并做交叉（做两条路线从segPoint往后相同位置的交换）
-      val r1Cross = r2.slice(segPoint,r2.length)
-      val r2Cross = r1.slice(segPoint,r1.length)
+      val r1Cross = r2.slice(segPoint, r2.length)
+      val r2Cross = r1.slice(segPoint, r1.length)
       // 做 r1 与 r1Cross 的交集后,从 r1 中取排除 r1Cross 后的元素，得到r1中未做交叉的元素
       val r1NonCross = r1.diff(r1Cross)
       val r2NonCross = r2.diff(r2Cross)
       // 填充 r1_new 和 r2_new
       routes(i) = route1New.patch(0, r1Cross, crossLen).patch(crossLen, r1NonCross, r1NonCross.length)
-      routes(i+1) = route2New.patch(0, r2Cross, crossLen).patch(crossLen, r2NonCross, r2NonCross.length)
+      routes(i + 1) = route2New.patch(0, r2Cross, crossLen).patch(crossLen, r2NonCross, r2NonCross.length)
     }
     routes
   }
 
   /**
    *
-    变异操作，变异概率为 0.01
-   * @param routes 所有路线 2d_array
+   * 变异操作，变异概率为 0.01
+   *
+   * @param routes    所有路线 2d_array
    * @param numCities 城市数量 int
    * @return 变异后的所有路线 2d_array
    */
@@ -262,10 +266,10 @@ object Main {
     // 这里 Random.nextDouble() 生成的是[0.0,1.0)伪随机数
     val pRandArr = Array.fill(routes.length)(Random.nextDouble())
     val len = routes.length
-    for(i <- 0 until len) {
-      if(pRandArr(i) < prob) {
-        val mutPosition = createRandomRoutes(2,numCities)
-        var (l,r) = (mutPosition(0),mutPosition(1))
+    for (i <- 0 until len) {
+      if (pRandArr(i) < prob) {
+        val mutPosition = createRandomRoutes(2, numCities)
+        var (l, r) = (mutPosition(0), mutPosition(1))
         // 使用元祖解构操作
         val temp = (routes(i)(l), routes(i)(r))
         routes(i)(l) = temp._2
@@ -296,21 +300,41 @@ object Main {
     var routes: ArrayBuffer[Array[Int]] = getRandomRoutes(numRoutes, numCities)
     //    printArr(routes.toArray)
     //     获取所有路线的适应度
-    val routesFitnessValues = getAllRoutesFitnessValue(routes, distMatrix)
+    var routesFitnessValues = getAllRoutesFitnessValue(routes, distMatrix)
     //    printArr(routesFitnessValues.toArray)
     val (maxValue, maxIndex) = routesFitnessValues.zipWithIndex.maxBy(_._1)
     val (bestRoute, bestFitness) = (routes(maxIndex), maxValue)
     //    print(s"最好适应度为：$bestFitness\n最好路线为：${bestRoute.mkString("Array(", ", ", ")")}")
 
     // ===========================开始迭代===========================
-    val endPointValue = 0
-//    for (i <- 1 to epoch) {
-      routes = selection(routes, routesFitnessValues) // 选择
-      routes = crossover(routes, cities.length) // 交叉
-      routes = mutation(routes, cities.length) // 变异
-//    }
+    var endEpoch = 0
+    breakable {
+      for (i <- 1 to epoch) {
+        routes = selection(routes, routesFitnessValues) // 选择
+        routes = crossover(routes, cities.length) // 交叉
+        routes = mutation(routes, cities.length) // 变异
+        // 在一轮选择交叉变异后重新计算所有路线适应度以及获取最好适应度下标
+        routesFitnessValues = getAllRoutesFitnessValue(routes, distMatrix)
+        val (maxValue, maxIndex) = routesFitnessValues.zipWithIndex.maxBy(_._1)
+        var (bestRoute, bestFitness) = (routes(maxIndex), maxValue)
+        if (routesFitnessValues(maxIndex) > bestFitness) {
+          endEpoch = 0
+          bestRoute = routes(maxIndex)
+          bestFitness = routesFitnessValues(maxIndex) // 保存最优路线及其适应度
+        } else {
+          endEpoch += 1
+        }
+        // 打印当前最优路线
+        if (i + 1 % 200 == 0) {
+          print(s"epoch: ${i+1}\nendEpoch: ${endEpoch+1}\n最好适应度为：$bestFitness\n最好路线为：${bestRoute.mkString("Array(", ", ", ")")}\n当前最优路线距离为：${1/getRouteFitnessValue(bestRoute,distMatrix)}")
+        }
+        if (endEpoch >= 2000) {
+          print("连续2000次迭代都没有改变最优路线，结束迭代")
+          break()
+        }
+      }
+    }
     val end = System.currentTimeMillis()
-    //    [scala string format用法](https://juejin.cn/s/scala%20string%20format%E7%94%A8%E6%B3%95)
     val resSec = (end - start) / 1000
     val msg = f"耗时: $resSec%.2f s."
     printf(msg)
