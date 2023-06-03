@@ -83,11 +83,9 @@ object Main {
       case _: Array[_] =>
         print1DArr(arr.asInstanceOf[Array[T]])
       // 处理一维数组的逻辑
-
       case _: Array[Array[_]] =>
         // 处理二维数组的逻辑
         print2DArr(arr.asInstanceOf[Array[Array[T]]])
-
       case _ =>
         println("未知类型")
       // 处理未知类型的逻辑
@@ -104,16 +102,14 @@ object Main {
    */
   private def createRandomRoutes(numRoutes: Int, numCities: Int): Array[Int] = {
     val arr = Array.tabulate(numCities)(i => i) // 创建包含[0,numCities-1]的数组
-    val random = new Random()
-
     for (i <- 0 until numRoutes) {
-      val j = i + random.nextInt(numCities - i) // 从剩余元素中随机选择一个索引
+      val j = i + Random.nextInt(numCities - i) // 从剩余元素中随机选择一个索引
       val temp = arr(i)
       arr(i) = arr(j)
       arr(j) = temp
     }
-    arr.take(numRoutes) // 返回前numRoutes个元素(一维数组)
-    //    arr
+//    arr.take(numRoutes) // 返回前numRoutes个元素(一维数组)
+    arr
   }
 
   /**
@@ -177,14 +173,11 @@ object Main {
    * @return 返回下标值
    */
   //  def weightedRandomChoice(arr: Array[Int],probability: Array[Double]): Int = {
-  private def weightedRandomChoice(probability: ListBuffer[Double]): Int = {
-    val random = new Random()
-    val totalWeight = probability.sum
-    val threshold = random.nextDouble() * totalWeight
-
+  private def weightedRandomChoice(probability: ListBuffer[Double],totalWeight: Double, len: Int): Int = {
+    val threshold = Random.nextDouble() * totalWeight
     var cumulativeWeight = 0.0
     var index = 0
-    while (index < probability.length - 1 && cumulativeWeight + probability(index) < threshold) {
+    while (index < len - 1 && cumulativeWeight + probability(index) < threshold) {
       cumulativeWeight += probability(index)
       index += 1
     }
@@ -199,19 +192,19 @@ object Main {
    *
    * @param routes              所有路线 2d_array
    * @param routesFitnessValues 所有路线适应度 1d_array
-   * @return 淘汰掉地适应度后的路线
+   * @return 淘汰掉低适应度后的路线 2d_array
    */
   private def selection(routes: ArrayBuffer[Array[Int]], routesFitnessValues: ListBuffer[Double]): ArrayBuffer[Array[Int]] = {
-
     // 根据 routes 的长宽大小申请一个同样大小的二维数组
-    val selectedRoutes: ArrayBuffer[Array[Int]] = ArrayBuffer.fill(routes.length)(Array.ofDim[Int](routes(0).length))
+//    val selectedRoutes: ArrayBuffer[Array[Int]] = ArrayBuffer.fill(routes.length)(Array.ofDim[Int](routes(0).length))
+      val selectedRoutes: ArrayBuffer[Array[Int]] = ArrayBuffer.fill(routes.length)(Array.fill(routes(0).length)(0))
     val sumFitnessValue = routesFitnessValues.sum
     val probability = routesFitnessValues.map(ele => ele / sumFitnessValue)
     //    printArr(probability.toArray)
     val numRoutes = routes.length
     // numRoutes 次轮盘赌带权重随机选择
     for (i <- 0 until numRoutes) {
-      val idx = weightedRandomChoice(probability)
+      val idx = weightedRandomChoice(probability,probability.sum, probability.length)
       selectedRoutes(i) = routes(idx)
     }
     selectedRoutes
@@ -231,9 +224,6 @@ object Main {
     val len = routes.length //这里len数值上=numCities
     // 这里要区分len是奇数还是偶数，如果len是奇数则应取n-1，如果len是偶数则取len
     for (i <- 0 until len by 2) {
-      // 初始化两个新数组，代表一条染色体的两片
-      val route1New = Array.fill(numCities)(0)
-      val route2New = Array.fill(numCities)(0)
       // 产生 [0,numCities) 之间的随机整数，作为交叉点的下标
       val segPoint = Random.nextInt(numCities)
       val crossLen = numCities - segPoint
@@ -247,8 +237,8 @@ object Main {
       val r1NonCross = r1.diff(r1Cross)
       val r2NonCross = r2.diff(r2Cross)
       // 填充 r1_new 和 r2_new
-      routes(i) = route1New.patch(0, r1Cross, crossLen).patch(crossLen, r1NonCross, r1NonCross.length)
-      routes(i + 1) = route2New.patch(0, r2Cross, crossLen).patch(crossLen, r2NonCross, r2NonCross.length)
+      routes(i) = routes(i).patch(0, r1Cross, crossLen).patch(crossLen, r1NonCross, r1NonCross.length)
+      routes(i + 1) = routes(i+1).patch(0, r2Cross, crossLen).patch(crossLen, r2NonCross, r2NonCross.length)
     }
     routes
   }
@@ -256,7 +246,10 @@ object Main {
   /**
    *
    * 变异操作，变异概率为 0.01
-   *
+   * 变异操作是按向量维度进行的，即把某一维的内容进行变异。
+   * 变异操作同样也是随机进行的。
+   * 一般而言，变异概率都取得较小，这里概率取0.01，
+   * 采取对于一个路线个体随机选取两个城市进行交换的策略
    * @param routes    所有路线 2d_array
    * @param numCities 城市数量 int
    * @return 变异后的所有路线 2d_array
@@ -269,7 +262,7 @@ object Main {
     for (i <- 0 until len) {
       if (pRandArr(i) < prob) {
         val mutPosition = createRandomRoutes(2, numCities)
-        var (l, r) = (mutPosition(0), mutPosition(1))
+        val (l, r) = (mutPosition(0), mutPosition(1))
         // 使用元祖解构操作
         val temp = (routes(i)(l), routes(i)(r))
         routes(i)(l) = temp._2
@@ -279,19 +272,19 @@ object Main {
     routes
   }
 
-
   /**
    * main 方法
    */
   def main(args: Array[String]): Unit = {
     val start = System.currentTimeMillis()
     val numRoutes = 100 // 路线数量
-    val numCities = 127 // 城市数量
+    var numCities = 127 // 城市数量
     val epoch = 100000 // 迭代次数
 
     // ===========================前期准备===========================
     // 导入数据
     val cities: ListBuffer[ArrayBuffer[Int]] = loadData("./cities.txt")
+    numCities = cities.length
     //    numCities.foreach(println)
     // 计算各城市距离矩阵
     val distMatrix: Array[Array[Double]] = getCitiesDistance(cities)
@@ -302,41 +295,42 @@ object Main {
     //     获取所有路线的适应度
     var routesFitnessValues = getAllRoutesFitnessValue(routes, distMatrix)
     //    printArr(routesFitnessValues.toArray)
-    val (maxValue, maxIndex) = routesFitnessValues.zipWithIndex.maxBy(_._1)
-    val (bestRoute, bestFitness) = (routes(maxIndex), maxValue)
+    var (maxValue, bestFitnessIndex) = routesFitnessValues.zipWithIndex.maxBy(_._1)
+    var (bestRoute, bestFitness) = (routes(bestFitnessIndex), maxValue)
     //    print(s"最好适应度为：$bestFitness\n最好路线为：${bestRoute.mkString("Array(", ", ", ")")}")
 
     // ===========================开始迭代===========================
-    var endEpoch = 0
+    var notImproveEpoch = 0
     breakable {
-      for (i <- 1 to epoch) {
+      for (i <- 0 until  epoch) {
         routes = selection(routes, routesFitnessValues) // 选择
-        routes = crossover(routes, cities.length) // 交叉
-        routes = mutation(routes, cities.length) // 变异
+        routes = crossover(routes, numCities) // 交叉
+        routes = mutation(routes, numCities)// 变异
         // 在一轮选择交叉变异后重新计算所有路线适应度以及获取最好适应度下标
         routesFitnessValues = getAllRoutesFitnessValue(routes, distMatrix)
-        val (maxValue, maxIndex) = routesFitnessValues.zipWithIndex.maxBy(_._1)
-        var (bestRoute, bestFitness) = (routes(maxIndex), maxValue)
-        if (routesFitnessValues(maxIndex) > bestFitness) {
-          endEpoch = 0
-          bestRoute = routes(maxIndex)
-          bestFitness = routesFitnessValues(maxIndex) // 保存最优路线及其适应度
+//        val (maxValue, bestFitnessIndex) = routesFitnessValues.zipWithIndex.maxBy(_._1)
+        // 从 0 开始往后查找最大索引值
+        bestFitnessIndex = routesFitnessValues.indexOf(routesFitnessValues.max, 0)
+        if (routesFitnessValues(bestFitnessIndex) > bestFitness) {
+          notImproveEpoch = 0
+          bestRoute = routes(bestFitnessIndex)
+          bestFitness = routesFitnessValues(bestFitnessIndex) // 保存最优路线及其适应度
         } else {
-          endEpoch += 1
+          notImproveEpoch += 1
         }
         // 打印当前最优路线
-        if (i + 1 % 200 == 0) {
-          print(s"epoch: ${i+1}\nendEpoch: ${endEpoch+1}\n最好适应度为：$bestFitness\n最好路线为：${bestRoute.mkString("Array(", ", ", ")")}\n当前最优路线距离为：${1/getRouteFitnessValue(bestRoute,distMatrix)}")
+        if ((i + 1) % 200 == 0) {
+          print(s"epoch: ${i+1}\nnotImproveEpoch: ${notImproveEpoch+1}\n最好适应度为：$bestFitness\n当前最优路线为：${bestRoute.mkString("Array(", ", ", ")")}\n当前最优路线距离为：${1/getRouteFitnessValue(bestRoute,distMatrix)}\n\n")
         }
-        if (endEpoch >= 2000) {
-          print("连续2000次迭代都没有改变最优路线，结束迭代")
+        if (notImproveEpoch >= 2000) {
+          print("连续2000次迭代都没有改变最优路线，结束迭代\n")
           break()
         }
       }
     }
+    print(s"最优路线为：${bestRoute.mkString("Array(", ", ", ")")}\n总距离为：${1/bestFitness}\n")
     val end = System.currentTimeMillis()
-    val resSec = (end - start) / 1000
-    val msg = f"耗时: $resSec%.2f s."
+    val msg = f"\n程序运行耗时: ${((end - start) / 1000)+0.0}%.2f s."
     printf(msg)
   }
 }
